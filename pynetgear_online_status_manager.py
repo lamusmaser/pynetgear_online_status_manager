@@ -1,72 +1,61 @@
 import os
-import time
 
-from pynetgear_enhanced import NetgearEnhanced as Netgear
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 
-# Fetch router credentials from environment variables
-ROUTER_USERNAME = os.getenv("ROUTER_USERNAME", "admin")
-ROUTER_PASSWORD = os.getenv("ROUTER_PASSWORD", "password")
-ROUTER_IP = os.getenv("ROUTER_IP", "192.168.1.1")  # Default Netgear router IP
+# Load environment variables
+router_ip = os.getenv("ROUTER_IP")
+router_username = os.getenv("ROUTER_USERNAME")
+router_password = os.getenv("ROUTER_PASSWORD")
 
+# Setup Chrome options
+chrome_options = Options()
+chrome_options.add_argument("--headless")  # Run in headless mode (no GUI)
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
 
-def check_and_repair_wifi(netgear):
-    # Get WiFi status
-    wifi_status = netgear.get_wifi_info()
+# Initialize the WebDriver with Selenium Manager handling chromedriver
+service = Service()
+driver = webdriver.Chrome(service=service, options=chrome_options)
 
-    # Extract the status of 2.4 GHz and 5 GHz
-    is_24ghz_online = wifi_status["2.4GHz"]["status"]
-    is_5ghz_online = wifi_status["5GHz"]["status"]
+# Define the URL to the router login page
+url = f"http://{router_ip}/status.htm"
 
-    # Store the states before attempting repair
-    initial_24ghz_online = is_24ghz_online
-    initial_5ghz_online = is_5ghz_online
+try:
+    # Open the router login page
+    driver.get(url)
 
-    # Disable/Enable 2.4 GHz if it's offline
-    if not initial_24ghz_online and initial_5ghz_online:
-        print("2.4 GHz is offline. Attempting to repair...")
-        netgear.set_wifi_2g(enable=False)
-        time.sleep(15)
-        netgear.set_wifi_2g(enable=True)
-        time.sleep(15)
-        is_24ghz_online = netgear.get_wifi_info()["2.4GHz"]["status"]
+    # Locate the username and password fields and enter credentials
+    username_input = driver.find_element(By.NAME, "username")
+    password_input = driver.find_element(By.NAME, "password")
+    login_button = driver.find_element(By.NAME, "login")
 
-    # Disable/Enable 5 GHz if it's offline
-    if not initial_5ghz_online and initial_24ghz_online:
-        print("5 GHz is offline. Attempting to repair...")
-        netgear.set_wifi_5g(enable=False)
-        time.sleep(15)
-        netgear.set_wifi_5g(enable=True)
-        time.sleep(15)
-        is_5ghz_online = netgear.get_wifi_info()["5GHz"]["status"]
+    username_input.send_keys(router_username)
+    password_input.send_keys(router_password)
+    login_button.click()
 
-    # Check the final status after repair attempts
-    if not initial_24ghz_online and not initial_5ghz_online:
-        print("Both 2.4 GHz and 5 GHz are offline. Rebooting router...")
-        netgear.reboot()
-    elif not is_24ghz_online or not is_5ghz_online:
-        print("One of the WiFi bands is still offline. Rebooting router...")
-        netgear.reboot()
-    else:
-        print("Both 2.4 GHz and 5 GHz are online.")
+    # Check the page contents for 2GHz and 5GHz Wi-Fi statuses
+    page_source = driver.page_source
 
+    # Check for 2GHz status
+    link_status_2g = None
+    if "link_status_2g" in page_source:
+        link_status_2g = driver.find_element(By.ID, "link_status_2g").text
 
-def main():
-    # Connect to the router
-    netgear = Netgear(
-        password=ROUTER_PASSWORD, host=ROUTER_IP, user=ROUTER_USERNAME
-    )
+    # Check for 5GHz status
+    link_status_5g = None
+    if "link_status_5g" in page_source:
+        link_status_5g = driver.find_element(By.ID, "link_status_5g").text
 
-    if not netgear.login():
-        print(
-            "Failed to connect to the router. Please check your credentials."
-        )
-        return
+    print(f"2GHz Wi-Fi Enabled: {link_status_2g is not None}")
+    print(f"5GHz Wi-Fi Enabled: {link_status_5g is not None}")
 
-    try:
-        check_and_repair_wifi(netgear)
-    finally:
-        netgear.logout()
+except Exception as e:
+    print(f"An error occurred: {e}")
 
-
-if __name__ == "__main__":
-    main()
+finally:
+    # Close the WebDriver session
+    driver.quit()
