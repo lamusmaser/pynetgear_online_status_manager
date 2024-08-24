@@ -7,8 +7,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 RUN apt-get update && apt-get install -y \
     wget \
-    gnupg \
+    gnupg2 \
     unzip \
+    chromium \
     libnss3 \
     libgconf-2-4 \
     libxi6 \
@@ -23,9 +24,5 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libpango-1.0-0 \
     libdbus-glib-1-2 \
-    && rm -rf /var/lib/apt/lists/*
-    RUN wget -q -O /usr/share/keyrings/google-chrome.gpg https://dl.google.com/linux/linux_signing_key.pub \
-    && echo "deb [signed-by=/usr/share/keyrings/google-chrome.gpg arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
-    && apt-get update && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 CMD [ "python3", "pynetgear_online_status_manager.py"]
