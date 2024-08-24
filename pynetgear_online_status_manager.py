@@ -1,7 +1,7 @@
 import os
 import time
 
-from pynetgear import Netgear
+from pynetgear_enhanced import NetgearEnhanced as Netgear
 
 # Fetch router credentials from environment variables
 ROUTER_USERNAME = os.getenv("ROUTER_USERNAME", "admin")
