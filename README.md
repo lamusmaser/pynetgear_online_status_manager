@@ -3,7 +3,7 @@ Utilizes the pynetgear_enhanced pypi package to manage the online status of a lo
 
 # Running Container
 ```
-docker run --rm --pull always -e ROUTER_USERNAME=admin -e ROUTER_PASSWORD=password -e ROUTER_IP=192.168.1.1 lamusmaser/video-filename-title-matcher:latest
+docker run --rm --pull always -e ROUTER_USERNAME=admin -e ROUTER_PASSWORD=password -e ROUTER_IP=192.168.1.1 lamusmaser/pynetgear_online_status_manager:latest
 ```
 
 This has three environment variables that you can utilize, otherwise it will attempt to use the defaults:
