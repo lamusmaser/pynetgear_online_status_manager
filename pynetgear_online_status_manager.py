@@ -1,61 +1,140 @@
 import os
+import time
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
-# Load environment variables
-router_ip = os.getenv("ROUTER_IP")
-router_username = os.getenv("ROUTER_USERNAME")
-router_password = os.getenv("ROUTER_PASSWORD")
 
-# Setup Chrome options
-chrome_options = Options()
-chrome_options.add_argument("--headless")  # Run in headless mode (no GUI)
-chrome_options.add_argument("--disable-gpu")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
+class RouterAutomation:
+    def __init__(self, ip, username, password):
+        self.ip = ip
+        self.username = username
+        self.password = password
+        self.driver = self._setup_driver()
 
-# Initialize the WebDriver with Selenium Manager handling chromedriver
-service = Service()
-driver = webdriver.Chrome(service=service, options=chrome_options)
+    def _setup_driver(self):
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        service = Service()
+        return webdriver.Chrome(service=service, options=chrome_options)
 
-# Define the URL to the router login page
-url = f"http://{router_ip}/status.htm"
+    def login(self):
+        self.driver.get(f"http://{self.ip}")
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.ID, "userId"))
+        )
+        self.driver.find_element(By.ID, "userId").send_keys(self.username)
+        self.driver.find_element(By.ID, "password").send_keys(self.password)
+        self.driver.find_element(By.ID, "password").send_keys(Keys.RETURN)
 
-try:
-    # Open the router login page
-    driver.get(url)
+    def wait_for_page_load(self):
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "loc1"))
+        )
 
-    # Locate the username and password fields and enter credentials
-    username_input = driver.find_element(By.NAME, "username")
-    password_input = driver.find_element(By.NAME, "password")
-    login_button = driver.find_element(By.NAME, "login")
+    def check_wifi_status(self, element_id):
+        loc_element = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, element_id))
+        )
+        loc_status_class = loc_element.get_attribute("class").split()[-1]
+        if loc_status_class == "disable":
+            return "Disabled"
+        elif loc_status_class == "gray":
+            return "No Connection"
+        else:
+            return "Connected"
 
-    username_input.send_keys(router_username)
-    password_input.send_keys(router_password)
-    login_button.click()
+    def get_2g_status(self):
+        return self.check_wifi_status("loc2")
 
-    # Check the page contents for 2GHz and 5GHz Wi-Fi statuses
-    page_source = driver.page_source
+    def get_5g_status(self):
+        return self.check_wifi_status("loc3")
 
-    # Check for 2GHz status
-    link_status_2g = None
-    if "link_status_2g" in page_source:
-        link_status_2g = driver.find_element(By.ID, "link_status_2g").text
+    def navigate_to_wifi_settings(self):
+        self.driver.find_element(By.ID, "wifiSettings").click()
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.ID, "general"))
+        )
 
-    # Check for 5GHz status
-    link_status_5g = None
-    if "link_status_5g" in page_source:
-        link_status_5g = driver.find_element(By.ID, "link_status_5g").text
+    def toggle_2g(self):
+        self.driver.find_element(By.ID, "enableAp").click()
 
-    print(f"2GHz Wi-Fi Enabled: {link_status_2g is not None}")
-    print(f"5GHz Wi-Fi Enabled: {link_status_5g is not None}")
+    def toggle_5g(self):
+        self.driver.find_element(By.ID, "enableAp5g").click()
 
-except Exception as e:
-    print(f"An error occurred: {e}")
+    def save_settings(self):
+        self.driver.find_element(By.ID, "saveBt1").click()
+        time.sleep(5)
 
-finally:
-    # Close the WebDriver session
-    driver.quit()
+    def navigate_to_status_page(self):
+        self.driver.find_element(By.ID, "status").click()
+        self.wait_for_page_load()
+
+    def navigate_to_restart_page(self):
+        self.driver.find_element(By.ID, "otherSettings").click()
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.ID, "restartBt"))
+        )
+
+    def restart_router(self):
+        self.driver.find_element(By.ID, "restartBt").click()
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.ID, "restartYesBt"))
+        )
+        self.driver.find_element(By.ID, "restartYesBt").click()
+        time.sleep(150)
+
+    def close(self):
+        self.driver.quit()
+
+    def manage_wifi(self):
+        # Get initial statuses
+        self.login()
+        self.wait_for_page_load()
+        two_g_status = self.get_2g_status()
+        five_g_status = self.get_5g_status()
+
+        print(f"Initial 2GHz Wi-Fi Status: {two_g_status}")
+        print(f"Initial 5GHz Wi-Fi Status: {five_g_status}")
+
+        # Logic for restarting 2.4GHz or 5GHz connection
+        if two_g_status != "Connected" or five_g_status != "Connected":
+            self.navigate_to_wifi_settings()
+            if two_g_status != "Connected":
+                self.toggle_2g()
+            if five_g_status != "Connected":
+                self.toggle_5g()
+            self.save_settings()
+            self.navigate_to_status_page()
+
+        # Optional: recheck the statuses here
+
+        if os.getenv("ACTION").lower() == "restart":
+            self.restart_router()
+            self.login()
+            self.wait_for_page_load()
+
+        # Final statuses after possible changes
+        two_g_status = self.get_2g_status()
+        five_g_status = self.get_5g_status()
+        print(f"Final 2GHz Wi-Fi Status: {two_g_status}")
+        print(f"Final 5GHz Wi-Fi Status: {five_g_status}")
+
+        self.close()
+
+
+# Main execution
+if __name__ == "__main__":
+    router_ip = os.getenv("ROUTER_IP")
+    username = os.getenv("ROUTER_USERNAME")
+    password = os.getenv("ROUTER_PASSWORD")
+
+    router_automation = RouterAutomation(router_ip, username, password)
+    router_automation.manage_wifi()
