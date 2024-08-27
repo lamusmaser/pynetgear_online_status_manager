@@ -17,7 +17,10 @@ class RouterManager:
 
     def login(self):
         print(f"Attempting login on {self.router_ip}.")
-        self.driver.get(f"http://{self.router_ip}/login.htm")
+        self.driver.get(f"http://{self.router_ip}")
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "input#loginBt"))
+        )
         self.driver.find_element(By.ID, "userId").send_keys(self.username)
         self.driver.find_element(By.ID, "password").send_keys(self.password)
         self.driver.find_element(By.ID, "password").send_keys(Keys.RETURN)
