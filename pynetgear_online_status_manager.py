@@ -16,6 +16,7 @@ class RouterManager:
         self.password = password
 
     def login(self):
+        print(f"Attempting login on {self.router_ip}.")
         self.driver.get(f"http://{self.router_ip}/login.htm")
         self.driver.find_element(By.ID, "userId").send_keys(self.username)
         self.driver.find_element(By.ID, "password").send_keys(self.password)
@@ -23,11 +24,14 @@ class RouterManager:
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "div.loc1"))
         )
+        print(f"Status page successfully loaded. Login deemed successful.")
 
     def get_wifi_info(self):
+        print(f"Getting active band information...")
         status = {}
         status["2.4GHz"] = self._get_band_status("loc2")
         status["5GHz"] = self._get_band_status("loc3")
+        print(f"Current status: {status}")
         return status
 
     def _get_band_status(self, locator):
@@ -43,9 +47,8 @@ class RouterManager:
             return "Connected"
 
     def set_wifi(self, band, enable):
-        settings_page = self.navigate_to(
-            "a#wifiSettings", "h2#general", "/wifiSettings.htm"
-        )
+        print(f"Setting {band} band to {'en' if enable else 'dis'}abled.")
+        self.navigate_to("a#wifiSettings", "h2#general", "/wifiSettings.htm")
         toggle_selector = (
             "input#enableAp" if band == "2.4GHz" else "input#enableAp5g"
         )
@@ -56,9 +59,14 @@ class RouterManager:
             toggle.click()
         self.driver.find_element(By.CSS_SELECTOR, "input#saveBt1").click()
         time.sleep(5)
+        print("Assuming setting is success. Returning to status page.")
         self.navigate_to("a#status", "div.loc1", "/status.htm")
 
     def reboot(self):
+        reboot_wait = 150
+        print(
+            f"Determined that a reboot action needs to occur for the system. Navigating to internal resource to restart system."
+        )
         self.navigate_to(
             "a#otherSettings", "a#restartBt", "/backUpSettings.htm"
         )
@@ -68,10 +76,15 @@ class RouterManager:
                 (By.CSS_SELECTOR, "input#restartYesBt")
             )
         ).click()
-        time.sleep(150)
+        print(
+            f"Clicked buttons. Waiting for {reboot_wait} seconds before checking current status."
+        )
+        time.sleep(reboot_wait)
+        print(f"Attempting to login after reboot.")
         self.login()
 
     def navigate_to(self, click_selector, wait_selector, url):
+        print(f"Attempting to navigate to new page: {url}")
         self.driver.find_element(By.CSS_SELECTOR, click_selector).click()
         return WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, wait_selector))
@@ -82,6 +95,7 @@ class RouterManager:
         is_24ghz_online = initial_status["2.4GHz"] == "Connected"
         is_5ghz_online = initial_status["5GHz"] == "Connected"
 
+        print("Attempting repair of wifi connectivity.")
         if not is_24ghz_online and is_5ghz_online:
             print("2.4 GHz is offline. Attempting to repair...")
             self.set_wifi("2.4GHz", enable=False)
