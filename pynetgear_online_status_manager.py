@@ -157,6 +157,9 @@ def main():
     try:
         netgear.login()
         netgear.repair_wifi()
+    #     netgear.logout()
+    # except:
+    #     netgear.logout()
     finally:
         driver.quit()
 
