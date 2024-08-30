@@ -51,6 +51,8 @@ class RouterManager:
 
     def set_wifi(self, band, enable):
         print(f"Setting {band} band to {'en' if enable else 'dis'}abled.")
+        self.navigate_to("i.dnintg-menu", "span#settingsSpan", "/status.htm")
+        self.navigate_to("span#settingsSpan", "a#wifiSettings", "/status.htm")
         self.navigate_to("a#wifiSettings", "h2#general", "/wifiSettings.htm")
         toggle_selector = (
             "input#enableAp" if band == "2.4GHz" else "input#enableAp5g"
@@ -63,6 +65,7 @@ class RouterManager:
         self.driver.find_element(By.CSS_SELECTOR, "input#saveBt1").click()
         time.sleep(5)
         print("Assuming setting is success. Returning to status page.")
+        self.navigate_to("i.dnintg-menu", "span#settingsSpan", "/status.htm")
         self.navigate_to("a#status", "div.loc1", "/status.htm")
 
     def reboot(self):
@@ -70,6 +73,8 @@ class RouterManager:
         print(
             f"Determined that a reboot action needs to occur for the system. Navigating to internal resource to restart system."
         )
+        self.navigate_to("i.dnintg-menu", "span#settingsSpan", "/status.htm")
+        self.navigate_to("span#settingsSpan", "a#otherSettings", "/status.htm")
         self.navigate_to(
             "a#otherSettings", "a#restartBt", "/backUpSettings.htm"
         )
